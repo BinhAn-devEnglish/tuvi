@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dữ Liệu Năng Lực</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #64748b;
+        }
+
+        #error-msg {
+            color: #ef4444;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+            background: #fee2e2;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f87171;
+            margin-bottom: 20px;
+        }
+
+        /* Khối Chủ đề Lớn (Cột A) */
+        .category-block {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 16px 20px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .category-header:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .category-header .icon {
+            font-size: 0.8em;
+            transition: transform 0.3s ease;
+        }
+
+        .category-header.active .icon {
+            transform: rotate(180deg);
+        }
+
+        /* Vùng chứa Cột B */
+        .sub-container {
+            display: none;
+            padding: 15px 20px;
+            background-color: #f1f5f9;
+        }
+
+        /* Khối Chủ đề Nhỏ (Cột B) */
+        .sub-item {
+            margin-bottom: 10px;
+        }
+
+        .sub-header {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #334155;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sub-header:hover {
+            background: #e2e8f0;
+        }
+        
+        .sub-header.active {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        /* Nội dung chi tiết (Cột C) */
+        .sub-content {
+            display: none;
+            background: white;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            white-space: pre-wrap;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Bảng Dữ Liệu Năng Lực</h1>
+        <div id="loading">Đang tải dữ liệu từ Google Sheet...</div>
+        <div id="error-msg"></div>
+        <div id="app"></div>
+    </div>
+
+    <script>
+        // Đã chèn link bạn cung cấp vào đây
+        const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXNCmllvZh-ZaeZFkot2VdOjWrEK9mpzQIjKbYY1_ldthzSNTZRqyR4yEPwZzLbUfpcGfAntcmL_KY/pub?gid=0&single=true&output=csv";
+
+        if(csvUrl === "HÃY_DÁN_LINK_CỦA_BẠN_VÀO_ĐÂY") {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-msg').style.display = 'block';
+            document.getElementById('error-msg').innerText = "Vui lòng dán link file CSV vào biến csvUrl trong code.";
+        } else {
+            // Gọi thư viện PapaParse để đọc link CSV
+            Papa.parse(csvUrl, {
+                download: true,
+                header: false,
+                complete: function(results) {
+                    document.getElementById('loading').style.display = 'none';
+                    processData(results.data);
+                },
+                error: function(error) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error-msg').style.display = 'block';
+                    document.getElementById('error-msg').innerText = "Lỗi tải dữ liệu. Hãy kiểm tra lại link CSV. Chi tiết lỗi: " + error.message;
+                    console.error("Lỗi:", error);
+                }
+            });
+        }
+
+        function processData(rows) {
+            const app = document.getElementById('app');
+            const groupedData = [];
+            let currentCategory = null;
+
+            let startIndex = 0;
+            if (rows[0] && rows[0][0] && rows[0][0].toUpperCase().includes("CHỦ ĐỀ")) {
+                startIndex = 1;
+            }
+
+            for (let i = startIndex; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length < 3) continue;
+
+                const colA = row[0] ? row[0].trim() : '';
+                const colB = row[1] ? row[1].trim() : '';
+                const colC = row[2] ? row[2].trim() : '';
+
+                if (!colA && !colB && !colC) continue;
+
+                if (colA !== '') {
+                    currentCategory = { title: colA, subItems: [] };
+                    groupedData.push(currentCategory);
+                }
+
+                if (colB !== '' && currentCategory) {
+                    currentCategory.subItems.push({ subTitle: colB, content: colC });
+                }
+            }
+
+            groupedData.forEach(category => {
+                const categoryBlock = document.createElement('div');
+                categoryBlock.className = 'category-block';
+
+                const categoryHeader = document.createElement('div');
+                categoryHeader.className = 'category-header';
+                categoryHeader.innerHTML = `<span>${category.title}</span> <span class="icon">▼</span>`;
+
+                const subContainer = document.createElement('div');
+                subContainer.className = 'sub-container';
+
+                categoryHeader.addEventListener('click', () => {
+                    const isVisible = subContainer.style.display === 'block';
+                    subContainer.style.display = isVisible ? 'none' : 'block';
+                    categoryHeader.classList.toggle('active', !isVisible);
+                });
+
+                category.subItems.forEach(item => {
+                    const subItemBlock = document.createElement('div');
+                    subItemBlock.className = 'sub-item';
+
+                    const subHeader = document.createElement('div');
+                    subHeader.className = 'sub-header';
+                    subHeader.innerHTML = `<span>${item.subTitle}</span> <span style="font-size: 0.8em; color: #94a3b8;">+</span>`;
+
+                    const subContent = document.createElement('div');
+                    subContent.className = 'sub-content';
+                    subContent.textContent = item.content; 
+
+                    subHeader.addEventListener('click', () => {
+                        const isVisible = subContent.style.display === 'block';
+                        subContent.style.display = isVisible ? 'none' : 'block';
+                        subHeader.classList.toggle('active', !isVisible);
+                        subHeader.querySelector('span:last-child').textContent = isVisible ? '+' : '−';
+                    });
+
+                    subItemBlock.appendChild(subHeader);
+                    subItemBlock.appendChild(subContent);
+                    subContainer.appendChild(subItemBlock);
+                });
+
+                categoryBlock.appendChild(categoryHeader);
+                categoryBlock.appendChild(subContainer);
+                app.appendChild(categoryBlock);
+            });
+        }
+    </script>
+</body>
+</html>
